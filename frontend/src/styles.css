@@ -1,0 +1,127 @@
+:root {
+  --bg-gradient: radial-gradient(circle at 20% 20%, #dbf3ff 0%, transparent 45%),
+    radial-gradient(circle at 80% 10%, #ffe7d8 0%, transparent 40%),
+    linear-gradient(145deg, #f7fbff 0%, #eef5ff 52%, #fff9ef 100%);
+  --card-shadow: 0 10px 36px rgba(20, 53, 102, 0.12);
+  --card-border: 1px solid rgba(113, 152, 215, 0.2);
+  --text-main: #1f2a44;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text-main);
+  background: var(--bg-gradient);
+  min-height: 100vh;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.app-shell {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.hero-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.hero-title {
+  margin: 0 !important;
+  color: #123870 !important;
+}
+
+.hero-subtitle {
+  margin: 0 0 12px 0;
+  max-width: 780px;
+  color: #46618f;
+}
+
+.content-card {
+  border-radius: 20px;
+  box-shadow: var(--card-shadow);
+  border: var(--card-border);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.page-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-card {
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(18, 56, 112, 0.08);
+  border: 1px solid rgba(92, 136, 203, 0.18);
+}
+
+.kiosk-card-type {
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
+  box-shadow: 0 6px 16px rgba(30, 84, 156, 0.1);
+  transition: all 0.2s ease;
+}
+
+.kiosk-card-type:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(30, 84, 156, 0.16);
+}
+
+.admin-login-card {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.tabs-card .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
+.stats-card {
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f9fbff 0%, #ffffff 100%);
+  border: 1px solid rgba(129, 156, 220, 0.2);
+}
+
+.progress-label-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.error-boundary-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.error-boundary-card {
+  max-width: 520px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 16px 10px 28px;
+  }
+
+  .hero-title {
+    font-size: 26px !important;
+  }
+
+  .content-card {
+    border-radius: 14px;
+  }
+}

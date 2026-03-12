@@ -1,0 +1,61 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: smart-guide-card-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: smart_guide_card
+      TZ: Asia/Shanghai
+    command: --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: smart-guide-card-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      DATABASE_URL: mysql://root:root@db:3306/smart_guide_card?connection_limit=20
+      JWT_SECRET: smart_guide_card_secret_change_me
+      JWT_EXPIRES_IN: 1d
+      CORS_ORIGIN: http://localhost:3000
+      TZ: Asia/Shanghai
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smart-guide-card-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  db_data:
+
+networks:
+  default:
+    name: shuzhijiangjieka_default
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.99.0.0/24

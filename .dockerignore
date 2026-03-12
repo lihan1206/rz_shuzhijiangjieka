@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+**/node_modules
+**/dist
+**/build
+**/.env
+**/.env.*
+**/.DS_Store
+**/__pycache__
+**/.venv
+.vscode
+.idea

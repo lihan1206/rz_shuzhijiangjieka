@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum CardStatus {
+  ACTIVE
+  FROZEN
+  LOST
+  EXPIRED
+}
+
+enum TransactionType {
+  PURCHASE
+  RECHARGE
+  REFUND
+}
+
+enum PaymentMethod {
+  WECHAT
+  ALIPAY
+  UNIONPAY
+  NFC
+  CASH
+}
+
+enum TransactionStatus {
+  SUCCESS
+  FAILED
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum DeviceAction {
+  RESTART
+  SYNC
+  UPGRADE
+}
+
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime @default(now())
+}
+
+model CardType {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  description  String?
+  price        Decimal       @db.Decimal(10, 2)
+  validDays    Int
+  usageLimit   Int?
+  stock        Int           @default(0)
+  discountInfo String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  cards        Card[]
+  transactions Transaction[]
+}
+
+model Card {
+  id            Int           @id @default(autoincrement())
+  cardNo         String        @unique
+  cardTypeId     Int
+  status         CardStatus    @default(ACTIVE)
+  balance        Decimal       @default(0) @db.Decimal(10, 2)
+  remainingUses  Int?
+  expiresAt      DateTime
+  activatedAt    DateTime?
+  lossReason     String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  cardType       CardType      @relation(fields: [cardTypeId], references: [id])
+  transactions   Transaction[]
+
+  @@index([cardTypeId])
+  @@index([status])
+}
+
+model Transaction {
+  id            Int               @id @default(autoincrement())
+  orderNo       String            @unique
+  cardId        Int?
+  cardTypeId    Int?
+  type          TransactionType
+  amount        Decimal           @db.Decimal(10, 2)
+  quantity      Int               @default(1)
+  paymentMethod PaymentMethod
+  status        TransactionStatus @default(SUCCESS)
+  deviceId      Int?
+  remark        String?
+  createdAt     DateTime          @default(now())
+  card          Card?             @relation(fields: [cardId], references: [id])
+  cardType      CardType?         @relation(fields: [cardTypeId], references: [id])
+  device        Device?           @relation(fields: [deviceId], references: [id])
+
+  @@index([createdAt])
+  @@index([paymentMethod])
+  @@index([cardTypeId])
+}
+
+model Device {
+  id              Int            @id @default(autoincrement())
+  deviceCode      String         @unique
+  name            String
+  location        String
+  status          DeviceStatus   @default(ONLINE)
+  firmwareVersion String         @default("1.0.0")
+  lastSyncAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  transactions    Transaction[]
+  deviceLogs      DeviceLog[]
+}
+
+model DeviceLog {
+  id        Int         @id @default(autoincrement())
+  deviceId  Int
+  action    DeviceAction
+  operator  String
+  detail    String?
+  createdAt DateTime    @default(now())
+  device    Device      @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, createdAt])
+}
+
+model OperationLog {
+  id        Int      @id @default(autoincrement())
+  module    String
+  action    String
+  operator  String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([module, createdAt])
+}
+
+model PaymentExceptionLog {
+  id            Int           @id @default(autoincrement())
+  orderNo        String?
+  paymentMethod  PaymentMethod?
+  errorMessage   String
+  context        Json?
+  createdAt      DateTime      @default(now())
+
+  @@index([createdAt])
+}
+
+model Faq {
+  id        Int      @id @default(autoincrement())
+  question  String   @unique
+  answer    String
+  sort      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sort])
+}
