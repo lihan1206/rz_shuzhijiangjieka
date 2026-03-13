@@ -17,14 +17,14 @@ const purchaseSchema = z.object({
   cardTypeId: z.coerce.number().int().positive('卡种编号不合法'),
   quantity: z.coerce.number().int().min(1, '数量至少为 1').max(20, '单次最多购买 20 张'),
   paymentMethod: z.enum(paymentMethods, { message: '支付方式不支持' }),
-  deviceCode: z.string().optional()
+  deviceCode: z.string().min(3, '设备编号至少 3 位').max(50, '设备编号过长').optional().or(z.literal(''))
 });
 
 const rechargeSchema = z.object({
   cardNo: z.string().min(6, '请输入正确的卡号'),
   amount: z.coerce.number().positive('充值金额必须大于 0').max(5000, '单次充值金额过大'),
   paymentMethod: z.enum(paymentMethods, { message: '支付方式不支持' }),
-  deviceCode: z.string().optional()
+  deviceCode: z.string().min(3, '设备编号至少 3 位').max(50, '设备编号过长').optional().or(z.literal(''))
 });
 
 const queryCardSchema = z.object({
@@ -62,6 +62,8 @@ router.post(
     let orderNo = null;
 
     try {
+      orderNo = createOrderNo();
+
       const result = await prisma.$transaction(async (tx) => {
         const cardType = await tx.cardType.findUnique({ where: { id: cardTypeId } });
         if (!cardType || !cardType.isActive) {
@@ -71,6 +73,8 @@ router.post(
         if (cardType.stock < quantity) {
           throw new AppError('库存不足，请减少数量后重试', 400, 'INSUFFICIENT_STOCK');
         }
+
+        const totalAmount = Number(cardType.price) * quantity;
 
         const stockUpdated = await tx.cardType.updateMany({
           where: {
@@ -88,16 +92,21 @@ router.post(
           throw new AppError('库存变更失败，请重试', 409, 'STOCK_CONFLICT');
         }
 
-        const device = deviceCode
-          ? await tx.device.findUnique({ where: { deviceCode } })
-          : await tx.device.findFirst({ orderBy: { id: 'asc' } });
+        let device = null;
+        if (deviceCode && deviceCode.trim()) {
+          device = await tx.device.findUnique({ where: { deviceCode: deviceCode.trim() } });
+          if (!device) {
+            throw new AppError('设备编号不存在，请确认后重试', 404, 'DEVICE_NOT_FOUND');
+          }
+        } else {
+          device = await tx.device.findFirst({ orderBy: { id: 'asc' } });
+        }
 
         const cards = [];
 
         for (let i = 0; i < quantity; i += 1) {
           const cardNo = createCardNo();
           const expiresAt = dayjs().add(cardType.validDays, 'day').toDate();
-          orderNo = createOrderNo();
 
           const card = await tx.card.create({
             data: {
@@ -121,7 +130,7 @@ router.post(
               paymentMethod,
               status: 'SUCCESS',
               deviceId: device?.id,
-              remark: '自助机购卡'
+              remark: `自助机购卡 ${i + 1}/${quantity}`
             }
           });
 
@@ -129,9 +138,12 @@ router.post(
         }
 
         return {
+          orderNo,
           cardType: formatCardType(cardType),
           cards,
-          totalAmount: Number(cardType.price) * quantity
+          totalAmount,
+          quantity,
+          paymentMethod
         };
       });
 
@@ -191,9 +203,15 @@ router.post(
           }
         });
 
-        const device = deviceCode
-          ? await tx.device.findUnique({ where: { deviceCode } })
-          : await tx.device.findFirst({ orderBy: { id: 'asc' } });
+        let device = null;
+        if (deviceCode && deviceCode.trim()) {
+          device = await tx.device.findUnique({ where: { deviceCode: deviceCode.trim() } });
+          if (!device) {
+            throw new AppError('设备编号不存在，请确认后重试', 404, 'DEVICE_NOT_FOUND');
+          }
+        } else {
+          device = await tx.device.findFirst({ orderBy: { id: 'asc' } });
+        }
 
         orderNo = createOrderNo();
 

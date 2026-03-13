@@ -38,6 +38,8 @@ export default function KioskPage() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchaseCardType, setPurchaseCardType] = useState(null);
+  const [purchaseQuantity, setPurchaseQuantity] = useState(1);
+  const [purchaseResult, setPurchaseResult] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceResult, setBalanceResult] = useState(null);
   const [txLoading, setTxLoading] = useState(false);
@@ -76,12 +78,18 @@ export default function KioskPage() {
 
   const openPurchaseModal = (cardType) => {
     setPurchaseCardType(cardType);
+    setPurchaseQuantity(1);
+    setPurchaseResult(null);
     purchaseForm.setFieldsValue({
       quantity: 1,
       paymentMethod: 'WECHAT',
       deviceCode: ''
     });
     setPurchaseOpen(true);
+  };
+
+  const handleQuantityChange = (value) => {
+    setPurchaseQuantity(value || 1);
   };
 
   const handlePurchase = async () => {
@@ -97,13 +105,7 @@ export default function KioskPage() {
         deviceCode: values.deviceCode || undefined
       });
 
-      Modal.success({
-        title: '购卡成功',
-        content: `已成功购买 ${result.data.cards.length} 张，合计 ¥${result.data.totalAmount.toFixed(2)}`
-      });
-
-      setPurchaseOpen(false);
-      purchaseForm.resetFields();
+      setPurchaseResult(result.data);
       fetchBaseData();
     } catch (error) {
       if (error?.issues) {
@@ -120,6 +122,12 @@ export default function KioskPage() {
     } finally {
       setPurchaseLoading(false);
     }
+  };
+
+  const handleClosePurchase = () => {
+    setPurchaseOpen(false);
+    setPurchaseResult(null);
+    purchaseForm.resetFields();
   };
 
   const handleRecharge = async () => {
@@ -353,27 +361,72 @@ export default function KioskPage() {
       <Modal
         title={purchaseCardType ? `购买 ${purchaseCardType.name}` : '购买讲解卡'}
         open={purchaseOpen}
-        onCancel={() => setPurchaseOpen(false)}
+        onCancel={handleClosePurchase}
         onOk={handlePurchase}
         okText="确认支付"
-        cancelText="取消"
+        cancelText={purchaseResult ? '关闭' : '取消'}
         confirmLoading={purchaseLoading}
+        footer={purchaseResult ? [
+          <Button key="close" type="primary" onClick={handleClosePurchase}>
+            完成
+          </Button>
+        ] : null}
       >
-        <Form layout="vertical" form={purchaseForm}>
-          <Form.Item label="购买数量" name="quantity" rules={[{ required: true, message: '请输入数量' }]}>
-            <InputNumber min={1} max={20} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            label="支付方式"
-            name="paymentMethod"
-            rules={[{ required: true, message: '请选择支付方式' }]}
-          >
-            <Select options={PAYMENT_METHOD_OPTIONS} />
-          </Form.Item>
-          <Form.Item label="设备编号（可选）" name="deviceCode">
-            <Input placeholder="如 KIOSK-A001" />
-          </Form.Item>
-        </Form>
+        {purchaseResult ? (
+          <div>
+            <Alert
+              message="购卡成功"
+              description="卡片已自动激活，可直接使用"
+              type="success"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+            <Descriptions bordered column={1} size="small">
+              <Descriptions.Item label="订单号">{purchaseResult.orderNo}</Descriptions.Item>
+              <Descriptions.Item label="购买数量">{purchaseResult.quantity} 张</Descriptions.Item>
+              <Descriptions.Item label="总金额">¥{purchaseResult.totalAmount.toFixed(2)}</Descriptions.Item>
+              <Descriptions.Item label="支付方式">{PAYMENT_METHOD_TEXT[purchaseResult.paymentMethod] || purchaseResult.paymentMethod}</Descriptions.Item>
+            </Descriptions>
+            <div style={{ marginTop: 16 }}>
+              <Typography.Text strong>卡号列表：</Typography.Text>
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {purchaseResult.cards.map((card, index) => (
+                  <Tag key={card.id} color="blue" style={{ fontSize: '14px', padding: '4px 8px' }}>
+                    {card.cardNo}
+                  </Tag>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Form layout="vertical" form={purchaseForm}>
+            <Form.Item label="购买数量" name="quantity" rules={[{ required: true, message: '请输入数量' }]}>
+              <InputNumber 
+                min={1} 
+                max={20} 
+                style={{ width: '100%' }} 
+                onChange={handleQuantityChange}
+              />
+            </Form.Item>
+            {purchaseCardType && (
+              <div style={{ marginBottom: 16, padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '6px' }}>
+                <Typography.Text type="secondary">单价：¥{purchaseCardType.price.toFixed(2)} × {purchaseQuantity} 张</Typography.Text>
+                <br />
+                <Typography.Text strong>总计：¥{(purchaseCardType.price * purchaseQuantity).toFixed(2)}</Typography.Text>
+              </div>
+            )}
+            <Form.Item
+              label="支付方式"
+              name="paymentMethod"
+              rules={[{ required: true, message: '请选择支付方式' }]}
+            >
+              <Select options={PAYMENT_METHOD_OPTIONS} />
+            </Form.Item>
+            <Form.Item label="设备编号（可选）" name="deviceCode">
+              <Input placeholder="如 KIOSK-A001" />
+            </Form.Item>
+          </Form>
+        )}
       </Modal>
     </div>
   );

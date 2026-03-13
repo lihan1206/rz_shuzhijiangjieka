@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const PAYMENT_METHODS = ['WECHAT', 'ALIPAY', 'UNIONPAY', 'NFC', 'CASH'] as const;
+
 export const loginSchema = z.object({
   username: z.string().min(1, '请输入用户名'),
   password: z.string().min(1, '请输入密码')
@@ -7,13 +9,15 @@ export const loginSchema = z.object({
 
 export const purchaseSchema = z.object({
   quantity: z.coerce.number().int().min(1, '数量至少为 1').max(20, '单次最多 20 张'),
-  paymentMethod: z.string().min(1, '请选择支付方式')
+  paymentMethod: z.enum(PAYMENT_METHODS, { message: '请选择有效的支付方式' }),
+  deviceCode: z.string().min(3, '设备编号至少 3 位').max(50, '设备编号过长').optional().or(z.literal(''))
 });
 
 export const rechargeSchema = z.object({
   cardNo: z.string().min(6, '请输入正确卡号'),
   amount: z.coerce.number().positive('充值金额必须大于 0').max(5000, '单次充值金额过大'),
-  paymentMethod: z.string().min(1, '请选择支付方式')
+  paymentMethod: z.enum(PAYMENT_METHODS, { message: '请选择有效的支付方式' }),
+  deviceCode: z.string().min(3, '设备编号至少 3 位').max(50, '设备编号过长').optional().or(z.literal(''))
 });
 
 export const cardQuerySchema = z.object({
