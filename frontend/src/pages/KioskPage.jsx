@@ -6,16 +6,20 @@ import {
   Col,
   Collapse,
   Descriptions,
+  Divider,
   Empty,
   Form,
   Input,
   InputNumber,
+  List,
   Modal,
+  Result,
   Row,
   Select,
   Skeleton,
   Space,
   Statistic,
+  Steps,
   Table,
   Tag,
   Typography
@@ -38,6 +42,8 @@ export default function KioskPage() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchaseCardType, setPurchaseCardType] = useState(null);
+  const [purchaseStep, setPurchaseStep] = useState(0);
+  const [purchaseResult, setPurchaseResult] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceResult, setBalanceResult] = useState(null);
   const [txLoading, setTxLoading] = useState(false);
@@ -76,12 +82,21 @@ export default function KioskPage() {
 
   const openPurchaseModal = (cardType) => {
     setPurchaseCardType(cardType);
+    setPurchaseStep(0);
+    setPurchaseResult(null);
     purchaseForm.setFieldsValue({
       quantity: 1,
       paymentMethod: 'WECHAT',
       deviceCode: ''
     });
     setPurchaseOpen(true);
+  };
+
+  const closePurchaseModal = () => {
+    setPurchaseOpen(false);
+    setPurchaseStep(0);
+    setPurchaseResult(null);
+    purchaseForm.resetFields();
   };
 
   const handlePurchase = async () => {
@@ -97,13 +112,8 @@ export default function KioskPage() {
         deviceCode: values.deviceCode || undefined
       });
 
-      Modal.success({
-        title: '购卡成功',
-        content: `已成功购买 ${result.data.cards.length} 张，合计 ¥${result.data.totalAmount.toFixed(2)}`
-      });
-
-      setPurchaseOpen(false);
-      purchaseForm.resetFields();
+      setPurchaseResult(result.data);
+      setPurchaseStep(2);
       fetchBaseData();
     } catch (error) {
       if (error?.issues) {
@@ -119,6 +129,15 @@ export default function KioskPage() {
       }
     } finally {
       setPurchaseLoading(false);
+    }
+  };
+
+  const goToConfirmStep = async () => {
+    try {
+      await purchaseForm.validateFields();
+      setPurchaseStep(1);
+    } catch (error) {
+      // 表单验证失败，不进入下一步
     }
   };
 
@@ -353,27 +372,151 @@ export default function KioskPage() {
       <Modal
         title={purchaseCardType ? `购买 ${purchaseCardType.name}` : '购买讲解卡'}
         open={purchaseOpen}
-        onCancel={() => setPurchaseOpen(false)}
-        onOk={handlePurchase}
-        okText="确认支付"
-        cancelText="取消"
+        onCancel={closePurchaseModal}
+        onOk={purchaseStep === 0 ? goToConfirmStep : handlePurchase}
+        okText={purchaseStep === 0 ? '下一步' : '确认支付'}
+        cancelText={purchaseStep === 0 ? '取消' : '上一步'}
         confirmLoading={purchaseLoading}
+        destroyOnClose
+        width={purchaseStep === 2 ? 600 : 520}
+        footer={
+          purchaseStep === 2
+            ? [
+                <Button key="close" type="primary" onClick={closePurchaseModal}>
+                  完成
+                </Button>
+              ]
+            : [
+                <Button key="cancel" onClick={purchaseStep === 0 ? closePurchaseModal : () => setPurchaseStep(0)}>
+                  {purchaseStep === 0 ? '取消' : '上一步'}
+                </Button>,
+                <Button
+                  key="submit"
+                  type="primary"
+                  loading={purchaseLoading}
+                  onClick={purchaseStep === 0 ? goToConfirmStep : handlePurchase}
+                >
+                  {purchaseStep === 0 ? '下一步' : '确认支付'}
+                </Button>
+              ]
+        }
       >
-        <Form layout="vertical" form={purchaseForm}>
-          <Form.Item label="购买数量" name="quantity" rules={[{ required: true, message: '请输入数量' }]}>
-            <InputNumber min={1} max={20} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            label="支付方式"
-            name="paymentMethod"
-            rules={[{ required: true, message: '请选择支付方式' }]}
+        <Steps
+          current={purchaseStep}
+          items={[{ title: '填写信息' }, { title: '确认订单' }, { title: '完成' }]}
+          style={{ marginBottom: 24 }}
+        />
+
+        {purchaseStep === 0 && (
+          <Form layout="vertical" form={purchaseForm}>
+            <Form.Item label="购买数量" name="quantity" rules={[{ required: true, message: '请输入数量' }]}>
+              <InputNumber min={1} max={20} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              label="支付方式"
+              name="paymentMethod"
+              rules={[{ required: true, message: '请选择支付方式' }]}
+            >
+              <Select options={PAYMENT_METHOD_OPTIONS} />
+            </Form.Item>
+            <Form.Item label="设备编号（可选）" name="deviceCode">
+              <Input placeholder="如 KIOSK-A001" />
+            </Form.Item>
+          </Form>
+        )}
+
+        {purchaseStep === 1 && purchaseCardType && (
+          <div>
+            <Card size="small" style={{ marginBottom: 16 }}>
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="卡种">{purchaseCardType.name}</Descriptions.Item>
+                <Descriptions.Item label="单价">¥{purchaseCardType.price.toFixed(2)}</Descriptions.Item>
+                <Descriptions.Item label="有效期">{purchaseCardType.validDays} 天</Descriptions.Item>
+              </Descriptions>
+            </Card>
+
+            <Card size="small" style={{ marginBottom: 16 }}>
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="购买数量">
+                  <Tag color="blue">{purchaseForm.getFieldValue('quantity')} 张</Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="支付方式">
+                  {PAYMENT_METHOD_TEXT[purchaseForm.getFieldValue('paymentMethod')]}
+                </Descriptions.Item>
+                {purchaseForm.getFieldValue('deviceCode') && (
+                  <Descriptions.Item label="设备编号">
+                    {purchaseForm.getFieldValue('deviceCode')}
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            </Card>
+
+            <Divider />
+
+            <div style={{ textAlign: 'right' }}>
+              <Typography.Text type="secondary">合计金额：</Typography.Text>
+              <Typography.Title level={3} style={{ display: 'inline', marginLeft: 8, color: '#f5222d' }}>
+                ¥{(purchaseCardType.price * purchaseForm.getFieldValue('quantity')).toFixed(2)}
+              </Typography.Title>
+            </div>
+          </div>
+        )}
+
+        {purchaseStep === 2 && purchaseResult && (
+          <Result
+            status="success"
+            title="购卡成功"
+            subTitle={`已成功购买 ${purchaseResult.cards.length} 张讲解卡`}
           >
-            <Select options={PAYMENT_METHOD_OPTIONS} />
-          </Form.Item>
-          <Form.Item label="设备编号（可选）" name="deviceCode">
-            <Input placeholder="如 KIOSK-A001" />
-          </Form.Item>
-        </Form>
+            <div>
+              <Card size="small" title="订单信息" style={{ marginBottom: 16 }}>
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="卡种">{purchaseResult.cardType.name}</Descriptions.Item>
+                  <Descriptions.Item label="购买数量">{purchaseResult.cards.length} 张</Descriptions.Item>
+                  <Descriptions.Item label="合计金额">
+                    <Typography.Text type="danger" strong>
+                      ¥{purchaseResult.totalAmount.toFixed(2)}
+                    </Typography.Text>
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+
+              <Card
+                size="small"
+                title={`卡号列表（共 ${purchaseResult.cards.length} 张）`}
+                style={{ marginBottom: 16 }}
+              >
+                <List
+                  size="small"
+                  dataSource={purchaseResult.cards}
+                  renderItem={(card, index) => (
+                    <List.Item>
+                      <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                        <Space>
+                          <Tag color="blue">{index + 1}</Tag>
+                          <Typography.Text copyable strong>
+                            {card.cardNo}
+                          </Typography.Text>
+                        </Space>
+                        <Typography.Text type="secondary" style={{ fontSize: 12, marginLeft: 28 }}>
+                          有效期至：{dayjs(card.expiresAt).format('YYYY-MM-DD HH:mm')}
+                        </Typography.Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                  style={{ maxHeight: 240, overflow: 'auto' }}
+                />
+              </Card>
+
+              <Alert
+                message="温馨提示"
+                description="请妥善保管您的卡号，卡片已自动激活，可立即使用。"
+                type="info"
+                showIcon
+              />
+            </div>
+          </Result>
+        )}
       </Modal>
     </div>
   );

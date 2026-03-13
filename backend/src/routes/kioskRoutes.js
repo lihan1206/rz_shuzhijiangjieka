@@ -9,6 +9,15 @@ import { createCardNo, createOrderNo } from '../utils/generator.js';
 import { formatCard, formatCardType, formatTransaction, toNumber } from '../utils/format.js';
 import { recordPaymentException } from '../services/logService.js';
 
+function formatCardWithDetails(card) {
+  return {
+    ...formatCard(card),
+    expiresAt: card.expiresAt,
+    activatedAt: card.activatedAt,
+    remainingUses: card.remainingUses
+  };
+}
+
 const router = Router();
 
 const paymentMethods = ['WECHAT', 'ALIPAY', 'UNIONPAY', 'NFC', 'CASH'];
@@ -125,7 +134,7 @@ router.post(
             }
           });
 
-          cards.push(formatCard(card));
+          cards.push(formatCardWithDetails(card));
         }
 
         return {
