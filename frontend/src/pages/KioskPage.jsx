@@ -6,10 +6,12 @@ import {
   Col,
   Collapse,
   Descriptions,
+  Divider,
   Empty,
   Form,
   Input,
   InputNumber,
+  message,
   Modal,
   Row,
   Select,
@@ -38,6 +40,8 @@ export default function KioskPage() {
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchaseCardType, setPurchaseCardType] = useState(null);
+  const [purchaseResult, setPurchaseResult] = useState(null);
+  const [resultOpen, setResultOpen] = useState(false);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [balanceResult, setBalanceResult] = useState(null);
   const [txLoading, setTxLoading] = useState(false);
@@ -47,6 +51,14 @@ export default function KioskPage() {
   const [purchaseForm] = Form.useForm();
   const [rechargeForm] = Form.useForm();
   const [queryForm] = Form.useForm();
+
+  const purchaseQuantity = Form.useWatch('quantity', purchaseForm);
+
+  const calculateTotal = () => {
+    if (!purchaseCardType) return 0;
+    const qty = purchaseQuantity || 1;
+    return purchaseCardType.price * qty;
+  };
 
   const fetchBaseData = async () => {
     setLoading(true);
@@ -97,11 +109,8 @@ export default function KioskPage() {
         deviceCode: values.deviceCode || undefined
       });
 
-      Modal.success({
-        title: '购卡成功',
-        content: `已成功购买 ${result.data.cards.length} 张，合计 ¥${result.data.totalAmount.toFixed(2)}`
-      });
-
+      setPurchaseResult(result.data);
+      setResultOpen(true);
       setPurchaseOpen(false);
       purchaseForm.resetFields();
       fetchBaseData();
@@ -120,6 +129,18 @@ export default function KioskPage() {
     } finally {
       setPurchaseLoading(false);
     }
+  };
+
+  const handleCopyAllCardNos = () => {
+    if (!purchaseResult?.cards?.length) return;
+    const cardNos = purchaseResult.cards.map((c) => c.cardNo).join('\n');
+    navigator.clipboard.writeText(cardNos);
+    message.success('卡号已复制到剪贴板');
+  };
+
+  const handleCopySingleCardNo = (cardNo) => {
+    navigator.clipboard.writeText(cardNo);
+    message.success('卡号已复制');
   };
 
   const handleRecharge = async () => {
@@ -358,10 +379,15 @@ export default function KioskPage() {
         okText="确认支付"
         cancelText="取消"
         confirmLoading={purchaseLoading}
+        width={520}
       >
         <Form layout="vertical" form={purchaseForm}>
           <Form.Item label="购买数量" name="quantity" rules={[{ required: true, message: '请输入数量' }]}>
-            <InputNumber min={1} max={20} style={{ width: '100%' }} />
+            <InputNumber 
+              min={1} 
+              max={Math.min(20, purchaseCardType?.stock || 20)} 
+              style={{ width: '100%' }} 
+            />
           </Form.Item>
           <Form.Item
             label="支付方式"
@@ -374,6 +400,98 @@ export default function KioskPage() {
             <Input placeholder="如 KIOSK-A001" />
           </Form.Item>
         </Form>
+
+        {purchaseCardType && (
+          <Card size="small" style={{ background: '#fafafa', marginTop: 8 }}>
+            <Descriptions column={2} size="small">
+              <Descriptions.Item label="单价">
+                <Typography.Text>¥{purchaseCardType.price.toFixed(2)}</Typography.Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="库存">
+                <Tag color={purchaseCardType.stock > 10 ? 'green' : 'orange'}>
+                  {purchaseCardType.stock} 张
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="有效期">
+                {purchaseCardType.validDays} 天
+              </Descriptions.Item>
+              <Descriptions.Item label="购买数量">
+                {purchaseQuantity || 1} 张
+              </Descriptions.Item>
+            </Descriptions>
+            <Divider style={{ margin: '12px 0' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography.Text strong>应付金额</Typography.Text>
+              <Typography.Text strong style={{ fontSize: 20, color: '#f5222d' }}>
+                ¥{calculateTotal().toFixed(2)}
+              </Typography.Text>
+            </div>
+          </Card>
+        )}
+      </Modal>
+
+      <Modal
+        title="购卡成功"
+        open={resultOpen}
+        onCancel={() => setResultOpen(false)}
+        footer={[
+          <Button key="close" onClick={() => setResultOpen(false)}>
+            关闭
+          </Button>,
+          <Button key="copy" type="primary" onClick={handleCopyAllCardNos}>
+            复制所有卡号
+          </Button>
+        ]}
+        width={700}
+      >
+        {purchaseResult && (
+          <div>
+            <Alert
+              type="success"
+              showIcon
+              message={`成功购买 ${purchaseResult.cards.length} 张卡，合计 ¥${purchaseResult.totalAmount.toFixed(2)}`}
+              style={{ marginBottom: 16 }}
+            />
+            <Table
+              size="small"
+              dataSource={purchaseResult.cards}
+              rowKey="id"
+              pagination={purchaseResult.cards.length > 10 ? { pageSize: 10 } : false}
+              columns={[
+                {
+                  title: '序号',
+                  width: 60,
+                  render: (_, __, index) => index + 1
+                },
+                {
+                  title: '卡号',
+                  dataIndex: 'cardNo',
+                  render: (text) => (
+                    <Space>
+                      <Typography.Text copyable={{ text, onCopy: () => handleCopySingleCardNo(text) }}>
+                        {text}
+                      </Typography.Text>
+                    </Space>
+                  )
+                },
+                {
+                  title: '有效期至',
+                  dataIndex: 'expiresAt',
+                  render: (value) => dayjs(value).format('YYYY-MM-DD')
+                },
+                {
+                  title: '状态',
+                  dataIndex: 'status',
+                  width: 80,
+                  render: () => <Tag color="green">已激活</Tag>
+                }
+              ]}
+            />
+            <Typography.Text type="secondary" style={{ marginTop: 12, display: 'block' }}>
+              温馨提示：请妥善保管您的卡号，可在"余额与交易查询"中查看卡片详情。
+            </Typography.Text>
+          </div>
+        )}
       </Modal>
     </div>
   );

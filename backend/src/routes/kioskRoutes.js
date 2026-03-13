@@ -59,7 +59,7 @@ router.post(
   validate(purchaseSchema),
   asyncHandler(async (req, res) => {
     const { cardTypeId, quantity, paymentMethod, deviceCode } = req.body;
-    let orderNo = null;
+    const orderNos = [];
 
     try {
       const result = await prisma.$transaction(async (tx) => {
@@ -93,45 +93,55 @@ router.post(
           : await tx.device.findFirst({ orderBy: { id: 'asc' } });
 
         const cards = [];
+        const now = new Date();
+        const expiresAt = dayjs().add(cardType.validDays, 'day').toDate();
 
+        const cardsToCreate = [];
         for (let i = 0; i < quantity; i += 1) {
-          const cardNo = createCardNo();
-          const expiresAt = dayjs().add(cardType.validDays, 'day').toDate();
-          orderNo = createOrderNo();
-
-          const card = await tx.card.create({
-            data: {
-              cardNo,
-              cardTypeId: cardType.id,
-              remainingUses: cardType.usageLimit,
-              expiresAt,
-              activatedAt: new Date(),
-              status: 'ACTIVE'
-            }
+          cardsToCreate.push({
+            cardNo: createCardNo(),
+            cardTypeId: cardType.id,
+            remainingUses: cardType.usageLimit,
+            expiresAt,
+            activatedAt: now,
+            status: 'ACTIVE'
           });
+        }
 
-          await tx.transaction.create({
-            data: {
-              orderNo,
-              cardId: card.id,
-              cardTypeId: cardType.id,
-              type: 'PURCHASE',
-              amount: cardType.price,
-              quantity: 1,
-              paymentMethod,
-              status: 'SUCCESS',
-              deviceId: device?.id,
-              remark: '自助机购卡'
-            }
+        const createdCards = await tx.card.createMany({
+          data: cardsToCreate,
+          returning: true
+        });
+
+        const transactionsToCreate = [];
+        for (const card of createdCards) {
+          const orderNo = createOrderNo();
+          orderNos.push(orderNo);
+          transactionsToCreate.push({
+            orderNo,
+            cardId: card.id,
+            cardTypeId: cardType.id,
+            type: 'PURCHASE',
+            amount: cardType.price,
+            quantity: 1,
+            paymentMethod,
+            status: 'SUCCESS',
+            deviceId: device?.id,
+            remark: '自助机购卡'
           });
-
           cards.push(formatCard(card));
         }
+
+        await tx.transaction.createMany({
+          data: transactionsToCreate
+        });
 
         return {
           cardType: formatCardType(cardType),
           cards,
-          totalAmount: Number(cardType.price) * quantity
+          totalAmount: Number(cardType.price) * quantity,
+          purchaseTime: now.toISOString(),
+          paymentMethod
         };
       });
 
@@ -142,7 +152,7 @@ router.post(
       });
     } catch (error) {
       await recordPaymentException({
-        orderNo,
+        orderNo: orderNos.length > 0 ? orderNos.join(',') : null,
         paymentMethod,
         errorMessage: error.message,
         context: {
