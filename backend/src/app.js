@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import authRoutes from './routes/authRoutes.js';
 import kioskRoutes from './routes/kioskRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import chatbotRoutes from './routes/chatbotRoutes.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
@@ -32,6 +33,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/kiosk', kioskRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

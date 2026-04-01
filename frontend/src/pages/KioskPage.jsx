@@ -33,6 +33,7 @@ import {
   TRANSACTION_TYPE_TEXT
 } from '../utils/constants';
 import { cardQuerySchema, purchaseSchema, rechargeSchema } from '../utils/validators';
+import Chatbot from '../components/Chatbot';
 
 export default function KioskPage() {
   const [cardTypes, setCardTypes] = useState([]);
@@ -518,6 +519,7 @@ export default function KioskPage() {
           </Result>
         )}
       </Modal>
+      <Chatbot />
     </div>
   );
 }

@@ -33,3 +33,10 @@ export const adminApi = {
   fetchUserBehaviorStats: (params) => client.get('/admin/stats/user-behavior', { params }),
   fetchLogs: (params) => client.get('/admin/logs', { params })
 };
+
+// 智能客服对话API
+export const sendChatMessage = (message) => client.post('/chatbot/message', { message });
+export const fetchChatbotCardTypes = () => client.get('/chatbot/card-types');
+export const fetchChatbotPaymentMethods = () => client.get('/chatbot/payment-methods');
+export const calculateBulkDiscount = (cardType, quantity) => 
+  client.post('/chatbot/bulk-calculate', { cardType, quantity });
