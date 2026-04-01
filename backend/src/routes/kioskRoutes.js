@@ -8,6 +8,7 @@ import { AppError } from '../utils/errors.js';
 import { createCardNo, createOrderNo } from '../utils/generator.js';
 import { formatCard, formatCardType, formatTransaction, toNumber } from '../utils/format.js';
 import { recordPaymentException } from '../services/logService.js';
+import { processUserInput } from '../services/dialogService.js';
 
 const router = Router();
 
@@ -337,6 +338,24 @@ router.get('/support', (_req, res) => {
     }
   });
 });
+
+const dialogSchema = z.object({
+  message: z.string().min(1, '请输入您的问题').max(500, '输入内容过长')
+});
+
+router.post(
+  '/dialog',
+  validate(dialogSchema),
+  asyncHandler(async (req, res) => {
+    const { message } = req.body;
+    const result = await processUserInput(message);
+    res.json({
+      success: true,
+      message: '处理成功',
+      data: result
+    });
+  })
+);
 
 router.get('/health', (_req, res) => {
   res.json({

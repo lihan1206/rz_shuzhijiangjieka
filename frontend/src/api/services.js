@@ -11,7 +11,8 @@ export const kioskApi = {
   queryBalance: (cardNo) => client.get(`/kiosk/cards/${cardNo}/balance`),
   fetchTransactions: (cardNo, limit = 5) => client.get(`/kiosk/cards/${cardNo}/transactions?limit=${limit}`),
   fetchFaq: () => client.get('/kiosk/faq'),
-  fetchSupport: () => client.get('/kiosk/support')
+  fetchSupport: () => client.get('/kiosk/support'),
+  dialog: (message) => client.post('/kiosk/dialog', { message })
 };
 
 export const adminApi = {

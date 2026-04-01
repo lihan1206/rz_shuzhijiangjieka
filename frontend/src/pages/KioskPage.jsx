@@ -31,6 +31,7 @@ import {
   TRANSACTION_TYPE_TEXT
 } from '../utils/constants';
 import { cardQuerySchema, purchaseSchema, rechargeSchema } from '../utils/validators';
+import ChatDialog from '../components/ChatDialog';
 
 export default function KioskPage() {
   const [cardTypes, setCardTypes] = useState([]);
@@ -493,6 +494,8 @@ export default function KioskPage() {
           </div>
         )}
       </Modal>
+
+      <ChatDialog />
     </div>
   );
 }
